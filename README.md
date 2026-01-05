@@ -1,6 +1,7 @@
 # DirectX practice
 
-**Gemini : bug and d3d and d2d initialization, use as an aid throughout learning content
-Reprinted less than 10%**
+**Gemini : bug and d3d and d2d initialization, questions**
 
-I hate myself
+## ref
+- https://gamesgard.com/directx11_lesson01/
+- 
