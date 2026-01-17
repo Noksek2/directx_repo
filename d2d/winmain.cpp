@@ -10,7 +10,7 @@ D3D* g_d3d;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 struct ShapeData{
-	char input_buffer[128];
+	//char input_buffer[128];
 	D2D1::ColorF::Enum color;
 	float w, h;
 	float x=0.f, y=0.f;
@@ -43,10 +43,103 @@ struct ShapeData{
 		dc->FillRectangle(D2D1::RectF(this->x - this->w / 2.f, this->y - this->h / 2.f, this->x + this->w / 2.f, this->y + this->h / 2.f), brush);
 		
 		brush->SetColor(D2D1::ColorF(D2D1::ColorF::White));
-		const wchar_t buf[64]=L"fuck가가";
+		/*const wchar_t buf[64] = L"fuck가가";
 		dc->DrawTextW(buf, 10, g_d2d->textFormat,
-		D2D1::RectF(this->x, this->y, this->x + this->w, this->y + this->h), brush);
+		D2D1::RectF(this->x, this->y, this->x + this->w, this->y + this->h), brush);*/
 		dc->SetTransform(D2D1::Matrix3x2F::Identity());
+	}
+};
+struct ShapeDataDOD {
+	enum {
+		MAX_SHAPE=150000
+	};
+	//char input_buffer[MAX_SHAPE][128];
+	alignas(16) float W[MAX_SHAPE], H[MAX_SHAPE];
+	alignas(16) float X[MAX_SHAPE], Y[MAX_SHAPE];
+	alignas(16) float ROT[MAX_SHAPE], DROT[MAX_SHAPE];
+	alignas(16) float ALPHA[MAX_SHAPE];
+	uint32_t size;
+	D2D1::ColorF::Enum color[MAX_SHAPE];
+	D2D1_COLOR_F COL[MAX_SHAPE];
+	D2D1_RECT_F RT[MAX_SHAPE];
+	D2D1_MATRIX_3X2_F TRANSFORM[MAX_SHAPE];
+	
+	ShapeDataDOD() {
+		memset(this, 0, sizeof(ShapeDataDOD));
+	}
+	void ResetAll(bool isZero = false) {
+		size = 0u;
+		if (isZero) memset(this, 0, sizeof(ShapeDataDOD));
+	}
+	void AppendRandom() {
+		if (size == MAX_SHAPE)return;
+		W[size] = (float)(rand() % 100)+100; //static_cast<float>(`~~) lol typeing so long and hard
+		H[size] = (float)(rand() % 100)+100;
+		X[size] = (float)(rand() % 800); //static_cast<float>(`~~) lol typeing so long and hard
+		Y[size] = (float)(rand() % 600);
+		ALPHA[size] = (float)(rand() % 100);
+		ROT[size] = (float)(rand() % 360);
+		DROT[size] = (float)(rand() % 100) / 100.f;
+		color[size] = (rand()>RAND_MAX/2)?D2D1::ColorF::Aqua:D2D1::ColorF::IndianRed;
+		size++;
+	}
+	void Draw(ID2D1DeviceContext* dc, SolidBrush brush) {
+		for (int i = 0; i < this->size; i++) {
+			
+			brush->SetColor(D2D1::ColorF(this->color[i], this->ALPHA[i]));
+			dc->FillRectangle(
+				D2D1::RectF(
+					this->X[i] - this->W[i] / 2.f,
+					this->Y[i] - this->H[i] / 2.f,
+					this->X[i] + this->W[i] / 2.f, 
+					this->Y[i] + this->H[i] / 2.f
+				), 
+				brush);
+			//brush->SetColor(D2D1::ColorF(D2D1::ColorF::White));
+			/*const wchar_t buf[64] = L"fuck가가";
+			dc->DrawTextW(buf, 10, g_d2d->textFormat,
+				D2D1::RectF(this->X[i], this->Y[i], this->X[i] + this->W[i], this->Y[i] + this->H[i]),
+				brush);*/
+			dc->SetTransform(D2D1::Matrix3x2F::Identity());
+		}
+	}
+
+	void Update() {
+#pragma omp parallel for
+		for (int i = 0; i < this->size; i++) {
+			ROT[i] += DROT[i];
+			RT[i] = D2D1::RectF(-W[i] / 2.f, -H[i] / 2.f, W[i] / 2.f, H[i] / 2.f);
+			COL[i] = D2D1::ColorF(color[i], ALPHA[i]);
+			TRANSFORM[i]= D2D1::Matrix3x2F::Rotation(this->ROT[i])
+				* D2D1::Matrix3x2F::Translation(X[i]+W[i]/2.f, this->Y[i] + H[i] / 2.f);
+		}
+	}
+	void DrawFast(ID2D1DeviceContext3* dc, ID2D1SpriteBatch* spriteBatch, ID2D1Bitmap* bitmap) {
+		
+		if (this->size == 0)return;
+		D2D1_ANTIALIAS_MODE oldmode = dc->GetAntialiasMode();
+		dc->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+		spriteBatch->Clear();
+		//HRESULT hr
+		spriteBatch->AddSprites(
+			this->size,
+			this->RT,
+			nullptr,
+			COL,
+			TRANSFORM,
+			sizeof(D2D1_RECT_F),
+			0,
+			sizeof(D2D1_COLOR_F),
+			sizeof(D2D1_MATRIX_3X2_F)
+		);
+		if (bitmap != nullptr)
+			dc->DrawSpriteBatch(
+				spriteBatch,
+				bitmap,
+				D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+				D2D1_SPRITE_OPTIONS_NONE
+			);
+		dc->SetAntialiasMode(oldmode);
 	}
 };
 /*class DrawObject {
@@ -62,21 +155,56 @@ private:
 	bool m_isChange = true;
 };*/
 static int shapecounts;
+static int shapecounts2;
 void RenderFrame() {
 	float clearColor[4] = { 0.1f,0.1f,0.1f,1.0f };
 	static std::vector<ShapeData>shapes;
+	static ShapeDataDOD shapedod;
 	static ShapeData s;
 	static ID2D1GeometrySink* sink = nullptr;
 	static ID2D1PathGeometry* path = nullptr;
-
+	static bool isStart = false;
+	static bool isStart_Normal = false;
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-
+	
 	ImGui::Begin("Window B");
 	// Add UI elements for the second window here
-	ImGui::Text("This is the second window.");
-	ImGui::Button("Click Me B");
+	ImGui::Text("This is the second window. DOD Style");
+	if (ImGui::Button("Normal Benchmark start")) {
+		if (isStart_Normal == false)shapes.clear(); 
+		
+		isStart_Normal = !isStart_Normal;
+		for (int i = 0; i < 90000; i++) {
+			s.RandomSet();
+			shapes.emplace_back(s);
+			shapecounts = shapes.size();
+			s.Reset();
+		}
+	}
+	if (ImGui::Button("DOD Benchmark start")) {
+		if (isStart == false)shapedod.ResetAll();
+		isStart = !isStart;
+		for (int i = 0; i < 97000; i++) {
+			shapedod.AppendRandom();
+		}
+	}
+	if (ImGui::Button("Reset")) {
+		shapedod.ResetAll();
+		shapes.clear();
+	}
+	if (isStart) {
+		shapedod.Update();
+		shapedod.AppendRandom();
+		shapecounts2 = shapedod.size;
+	}
+	if (isStart_Normal) {
+		s.RandomSet();
+		shapes.emplace_back(s);
+		shapecounts = shapes.size();
+		s.Reset();
+	}
 	ImGui::End();
 
 	ImGui::Begin("ImGUI window");
@@ -88,7 +216,7 @@ void RenderFrame() {
 	ImGui::SliderFloat("pos y", &s.y, 0.f, 600.0f);
 	ImGui::SliderFloat("rotation", &s.drot, 0.f, 1.0f);
 	ImGui::SliderFloat("alpha", &s.alpha, 0.f, 1.0f);
-	ImGui::InputText("Input Label", s.input_buffer, IM_ARRAYSIZE(s.input_buffer));
+	//ImGui::InputText("Input Label", s.input_buffer, IM_ARRAYSIZE(s.input_buffer));
 
 	static const char* items[] = {"red","blue","aqua"};
 	static int current_item_idx = 0;
@@ -105,13 +233,10 @@ void RenderFrame() {
 		s.color = D2D1::ColorF::Aquamarine;
 		break;
 	}
-	if(ImGui::Button("Append")){
-	s.RandomSet();
-		shapes.emplace_back(s);
-		shapecounts++;
-		s.Reset();
-
+	if (ImGui::Button("Append")) {
+		//isStart_Normal = !isStart_Normal;
 	}
+	
 	if (ImGui::Button("Geometry") && path == nullptr) {
 		g_d2d->factory->CreatePathGeometry(&path);
 		path->Open(&sink);
@@ -139,6 +264,8 @@ void RenderFrame() {
 		_shape.Draw(dc, brush);
 	}
 	s.Draw(dc, brush);
+
+	shapedod.DrawFast(g_d2d->dc3.Get(), g_d2d->spriteBatch.Get(), g_d2d->bakedBitmap.Get());
 
 	if (path != nullptr) {
 		brush->SetColor(D2D1::ColorF(1.0, 0.5, 1.0, 0.5));
@@ -364,7 +491,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
 
 				std::wstring fpsText = L"My DX11 App (FPS: " + std::to_wstring(m_fps);
 				fpsText += L", CNT : ";
-				fpsText += std::to_wstring(shapecounts) + L")";
+				fpsText += std::to_wstring(shapecounts) + L", CNT2 : ";
+				fpsText += std::to_wstring(shapecounts2) + L")";
 				// m_hwnd는 WinApp 클래스에 있는 윈도우 핸들입니다.
 				SetWindowTextW(hwnd, fpsText.c_str());
 

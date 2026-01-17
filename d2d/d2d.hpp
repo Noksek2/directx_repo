@@ -5,8 +5,9 @@
 
 #include "d3d.hpp"
 #include <d2d1.h>
-#include <d2d1_1.h>
-#include <d2d1_1helper.h>
+//#include <d2d1_1.h>
+#include <d2d1_3.h>
+#include <d2d1_3helper.h>
 #include <dxgi1_2.h>
 #include <dwrite.h>
 #include <wincodec.h>
@@ -24,12 +25,18 @@ typedef D2D1_POINT_2F Point2;
 
 class D2D {
 public:
-    ComPtr<ID2D1Factory1> factory;
-    ComPtr < ID2D1Device> device;
-    ComPtr<ID2D1DeviceContext> deviceContext;
-    ComPtr < ID2D1Bitmap1> targetBitmap;
+	ComPtr<ID2D1Factory1>       factory;
+	ComPtr<ID2D1Device>         device;
+	ComPtr<ID2D1DeviceContext>  deviceContext;
+	ComPtr<ID2D1DeviceContext3> dc3;
+	ComPtr<ID2D1Bitmap1>        targetBitmap;
+	ComPtr<ID2D1SpriteBatch>    spriteBatch;
+	ComPtr<ID2D1SpriteBatch>    spriteBatch_text;
+	ComPtr<ID2D1Bitmap>         bakedBitmap;
+	ComPtr<ID2D1Bitmap>         bakedBitmap_text;
 
-    SolidBrush solidBrush = nullptr;
+    ID2D1SolidColorBrush* solidBrush = nullptr;
+    
     IDWriteFactory* writeFactory = nullptr;
     IDWriteTextFormat* textFormat = nullptr;
 

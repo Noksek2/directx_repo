@@ -52,7 +52,7 @@ bool D2D::Init(HWND hwnd, ComPtr<ID3D11Device>& d3dDevice, ComPtr<IDXGISwapChain
     if (FAILED(hr)) return false;
 
 
-    // 7. SwapChain의 백버퍼를 D2D의 비트맵 타겟으로 설정 ★★★
+    // 7. SwapChain의 백버퍼를 D2D의 비트맵 타겟으로 설정
     ComPtr<IDXGISurface> dxgiSurface;
     if (FAILED(swapChain->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface)))) // 백버퍼를 Surface로 가져옴
         return false;
@@ -77,6 +77,19 @@ bool D2D::Init(HWND hwnd, ComPtr<ID3D11Device>& d3dDevice, ComPtr<IDXGISwapChain
 
     hr = CreateFontDevice();
     if (FAILED(hr)) return false;
+
+    hr = deviceContext.As(&dc3);
+    //hr = deviceContext->QueryInterface(__uuidof(ID2D1DeviceContext3), (void**)&this->dc3);
+    if (FAILED(hr)) return false;
+
+    hr = dc3->CreateSpriteBatch(&spriteBatch);
+    if (FAILED(hr)) return false;
+
+    D2D1_PIXEL_FORMAT fmt = D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED);
+    unsigned char data[4] = { 255, 255, 255, 255 };
+    hr = deviceContext->CreateBitmap(D2D1::SizeU(1, 1), data, 4, D2D1::BitmapProperties(fmt), &bakedBitmap);
+    if (FAILED(hr)) return false;
+
     return true;
 }
 
