@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SpriteFont xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://schemas.microsoft.com/directx/2011/08/spritefont">
+  
+  <FontName>Malgun Gothic</FontName>
+  
+  <Size>30</Size>
+  
+  <CharacterRegions>
+    <CharacterRegion>
+      <Start>&#32;</Start> <End>&#126;</End> </CharacterRegion>
+    <CharacterRegion>
+      <Start>&#4352;</Start> <End>&#4607;</End> </CharacterRegion>
+    <CharacterRegion>
+      <Start>&#44032;</Start> <End>&#55203;</End> </CharacterRegion>
+  </CharacterRegions>
+</SpriteFont>
