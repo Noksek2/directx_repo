@@ -1,6 +1,7 @@
-# DirectX practice
+# Personal DirectX practice
 
-**Gemini : bug and d3d and d2d initialization, questions**
+
+ugly code. refactoring or change structure later
 
 ## D3D Reference
 - https://gamesgard.com/directx11_lesson01/
