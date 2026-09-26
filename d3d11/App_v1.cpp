@@ -1,4 +1,4 @@
-#define __APP1__
+﻿//#define __APP1__
 #ifdef __APP1__
 #include "App.h"
 #include "ImGuizmo.h"
@@ -54,31 +54,7 @@ bool MyWinApp::RenderInit() {
 #endif
 	return true;
 }
-bool WinApp::Render() {
 
-	//Time
-	auto currentTime = std::chrono::steady_clock::now();
-	// 마지막 프레임과의 시간 차이 (초 단위)
-	float deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - m_lastTime).count() / 1000000.0f;
-	m_deltaTime = deltaTime;
-	m_lastTime = currentTime;
-
-	// 1초마다 FPS 갱신 (더 부드러운 표시)
-	m_timeElapsed += deltaTime;
-	m_frameCount++;
-	if (m_timeElapsed >= 1.0f) {
-		m_fps = static_cast<float>(m_frameCount) / m_timeElapsed;
-		m_frameCount = 0;
-		m_timeElapsed = 0.0f;
-
-		// ★★★ 여기에 FPS를 출력하는 코드가 들어갑니다 ★★★
-		// (아래 2. 텍스트 출력 방법 참고)
-		std::wstring fpsText = L"My DX11 App (FPS: " + std::to_wstring(m_fps) + L")";
-		// m_hwnd는 WinApp 클래스에 있는 윈도우 핸들입니다.
-		SetWindowTextW(m_hwnd, fpsText.c_str());
-	}
-	return true;
-}
 bool MyWinApp::Render() {
 #ifdef USEIMGUI
 

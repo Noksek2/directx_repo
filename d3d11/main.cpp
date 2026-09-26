@@ -1,71 +1,33 @@
-
-#include "App.h"
+﻿
+#include "App.hpp"
+class MyApp:public WinApp {
+public:
+	void Update() override {
+		auto rt = GetD2D().GetRenderTarget();
+		ComPtr<ID2D1SolidColorBrush> brush;
+		rt->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Red), &brush);
+		D2D1_RECT_F rect = D2D1::RectF(100.0f, 100.0f, 300.0f, 300.0f);
+		rt->FillRectangle(&rect, brush.Get());
+	}
+};
 int WINAPI WinMain(HINSTANCE hin, HINSTANCE, LPSTR, int) {
 	//DPI Setting fuck you
 	//SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
 	auto title = _T("fuck you");
-	std::unique_ptr<MyWinApp>app(new MyWinApp(hin, title, 800, 600));
-
-	HWND hwnd = app->getHwnd();
-	// 응용 프로그램 초기화를 수행합니다.
-	if (!hwnd)return 0;
-
-
+	std::unique_ptr<MyApp>app(new MyApp());
+	if (!app->Create(hin, title, 800, 600)) return 1;
+	app->Show();
 	/*while (msg.message != WM_QUIT) {
 		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
 			DispatchMessage(&msg);
 	   // else render(d2d.get());
 	}*/
-	 
 
 
 	return (int)app->MsgLoop();
 }
-WPARAM WinApp::MsgLoop() {
-	MSG msg = { 0 };
-	RenderInit();
-	while (1) {
-		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-			//Windows Message Process
-			//if quit message
-			if (msg.message == WM_QUIT) {
-				break;
-			}
-			else {
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
-		}
-		{
-			float color[4] = { 0.f,0.f,0.f, 1.0f };
 
-
-			D3D::GetInstance().GetDeviceContext()->ClearRenderTargetView(
-				D3D::GetInstance().GetBackBufferView(), color);
-			
-			D3D::GetInstance().GetDeviceContext()->ClearDepthStencilView(
-				D3D::GetInstance().GetDepthStencilView().Get(), // (D3D.h에 추가한 뷰)
-				D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
-				1.0f, // 깊이 값 (1.0 = 가장 멈)
-				0     // 스텐실 값
-			);
-		}
-		this->Render();
-
-		//Swapchain Present
-		GetD3D().GetSwapChain()->Present(1, 0);
-	}
-	/*
-	while (GetMessage(&msg, NULL, 0, 0))
-	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-	}*/
-
-	D3D::DeleteInstance();
-	return (int)msg.wParam;
-}
 
 LRESULT CALLBACK g_WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 

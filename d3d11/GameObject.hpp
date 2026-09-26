@@ -1,4 +1,4 @@
-#include "D3D.h"
+﻿#include "GraphicEngine.hpp"
 class GameObject;
 class IComponent {
 public:

@@ -1,17 +1,6 @@
-#include "D3D.h"
+﻿#include "D3D.hpp"
 //https://gamesgard.com/directx11_lesson02/
-D3D* D3D::s_instance;
-bool D3D::Init(HWND hwnd, int screenWidth, int screenHeight) {
-	m_hwnd = hwnd;
-
-	/* Initialize D3D
-	*/
-
-	ComPtr<IDXGIFactory> factory;
-	//Create Factory
-	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)))) {
-		return false;
-	}
+bool D3D::CreateDeviceContext() {
 	UINT createFlags = 0;
 #ifdef _DEBUG
 	createFlags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -19,7 +8,6 @@ bool D3D::Init(HWND hwnd, int screenWidth, int screenHeight) {
 #ifdef USED2D
 	createFlags |= D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #endif
-	//featureLevel
 	D3D_FEATURE_LEVEL featureLevels[] =
 	{
 		D3D_FEATURE_LEVEL_11_1,	// Direct3D 11.1  ShaderModel 5
@@ -44,68 +32,141 @@ bool D3D::Init(HWND hwnd, int screenWidth, int screenHeight) {
 		&m_deviceContext))) {
 		return false;
 	}
+	return true;
+}
+bool D3D::CreateSwapChain() {
 
-	//swap chain desc
-	DXGI_SWAP_CHAIN_DESC scDesc = {};
-	//SET SWAPCHAINDESC
-	{
-		auto& s = scDesc;
-		{
-			auto& buf = s.BufferDesc;
-			buf.Width = screenWidth;
-			buf.Height = screenHeight;
-			buf.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			buf.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-			buf.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-		}
-		s.SampleDesc.Count = 1;
-		s.SampleDesc.Quality = 0;
-
-		s.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-		s.BufferCount = 2;
-
-		s.OutputWindow = hwnd;
-		s.Windowed = true;
-
-		s.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;//DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-		s.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+	ComPtr<IDXGIFactory> factory;
+	//Create Factory
+	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)))) {
+		return false;
 	}
+	DXGI_SWAP_CHAIN_DESC scDesc = {};
+
+		auto& buf = scDesc.BufferDesc;
+		buf.Width =  m_width;
+		buf.Height = m_height;
+		buf.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		buf.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+		buf.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+
+		scDesc.SampleDesc.Count = 1;
+		scDesc.SampleDesc.Quality = 0;
+
+		scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		scDesc.BufferCount = 2;
+
+		scDesc.OutputWindow = m_hwnd;
+		scDesc.Windowed = TRUE;
+
+		scDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;//DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+		scDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+
 	if (FAILED(factory->CreateSwapChain(
 		m_device.Get(), &scDesc, &m_swapChain))) {
 		return false;
 	}
 
-	//BACK BUFFER
+	return true;
+}
+bool D3D::CreateRenderTarget() {
 	ComPtr<ID3D11Texture2D> backBuffer;
-	if (FAILED(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)))) {
+	//IID_PPV_ARGS(&backBuffer) = backBuffer.GetAddressOf()
+	if (FAILED(m_swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.GetAddressOf())))) {
 		return false;
 	}
 
+	//D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	//rtvDesc.Format = scDesc.BufferDesc.Format;
+	//rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	if (FAILED(m_device->CreateRenderTargetView(
+		backBuffer.Get(), nullptr, &m_backBufferView))) {
+		return false;
+	}
+	return true;
+}
+bool D3D::CreateDepthStencil() {
+	D3D11_TEXTURE2D_DESC depthDesc = {};
+	depthDesc.Width =  m_width;  // 백 버퍼와 동일한 크기
+	depthDesc.Height = m_height; // 백 버퍼와 동일한 크기
+	depthDesc.MipLevels = 1;
+	depthDesc.ArraySize = 1;
+	depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 깊이(24bit) + 스텐실(8bit) 포맷
+	depthDesc.SampleDesc.Count = 1; // SampleDesc는 스왑체인과 일치해야 함
+	depthDesc.SampleDesc.Quality = 0;
+	depthDesc.Usage = D3D11_USAGE_DEFAULT;
+	depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL; // "이 텍스처는 깊이 버퍼로 쓰겠다"
+	depthDesc.CPUAccessFlags = 0;
+	depthDesc.MiscFlags = 0;
 
-	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-	rtvDesc.Format = scDesc.BufferDesc.Format;
-	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-	if (FAILED(m_device->CreateRenderTargetView(backBuffer.Get(), &rtvDesc, &m_backBufferView)))
-	{
+	if (FAILED(m_device->CreateTexture2D(
+		&depthDesc, nullptr, &m_depthStencilBuffer))) {
 		return false;
 	}
 
-
-	//Create ZBuffer
-	if (!this->CreateZBuffer(screenWidth, screenHeight)) {
+	if (FAILED(m_device->CreateDepthStencilView(
+		m_depthStencilBuffer.Get(), nullptr, &m_depthStencilView))) {
 		return false;
 	}
-
 
 	m_deviceContext->OMSetRenderTargets(1,
 		m_backBufferView.GetAddressOf(), m_depthStencilView.Get());
-	m_deviceContext->OMSetDepthStencilState(m_depthStencilState.Get(), 1);
+
+
+	// (2) 텍스처를 기반으로 깊이 스텐실 "뷰(View)" 생성
+	//D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+	//dsvDesc.Format = depthDesc.Format;
+	//dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	//dsvDesc.Texture2D.MipSlice = 0;
+	//
+	//if (FAILED(m_device->CreateDepthStencilView(depthBufferTexture.Get(), &dsvDesc, &m_depthStencilView)))
+	//{
+	//	return false;
+	//}
+
+	return true;
+}
+bool D3D::Init(HWND hwnd, int screenWidth, int screenHeight, bool vsync) {
+	m_hwnd = hwnd;
+	m_width = screenWidth;
+	m_height = screenHeight;
+	m_vsync = vsync;
+
+	//Device, Context 생성
+	if (!CreateDeviceContext()) {
+		return false;
+	}
+	//swap chain desc
+	if (!CreateSwapChain()) {
+		return false;
+	}
+
+	//BACK BUFFER
+	if (!CreateRenderTarget()) {
+		return false;
+	}
+	if (!CreateDepthStencil()) {
+		return false;
+	}
+
+
+
 
 	//viewport
-	D3D11_VIEWPORT vp = { 0.f, 0.f,
-		(float)screenWidth,(float)screenHeight,
-		0.f,1.f };
+	D3D11_VIEWPORT vp;
+	vp.Width = (float)screenWidth;
+	vp.Height = (float)screenHeight;
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	vp.TopLeftX = 0;
+	vp.TopLeftY = 0;
 	m_deviceContext->RSSetViewports(1, &vp);
+
+
+	return true;
+	m_deviceContext->OMSetDepthStencilState(m_depthStencilState.Get(), 1);
+
 
 
 	ComPtr<ID3DBlob> errorBlob = nullptr; // 에러 메시지 받을 그릇
@@ -177,34 +238,7 @@ bool D3D::Init(HWND hwnd, int screenWidth, int screenHeight) {
 
 bool D3D::CreateZBuffer(int screenWidth, int screenHeight) {
 	ComPtr<ID3D11Texture2D> depthBufferTexture;
-	D3D11_TEXTURE2D_DESC depthDesc = {};
-	depthDesc.Width = screenWidth;  // 백 버퍼와 동일한 크기
-	depthDesc.Height = screenHeight; // 백 버퍼와 동일한 크기
-	depthDesc.MipLevels = 1;
-	depthDesc.ArraySize = 1;
-	depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 깊이(24bit) + 스텐실(8bit) 포맷
-	depthDesc.SampleDesc.Count = 1; // SampleDesc는 스왑체인과 일치해야 함
-	depthDesc.SampleDesc.Quality = 0;
-	depthDesc.Usage = D3D11_USAGE_DEFAULT;
-	depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL; // "이 텍스처는 깊이 버퍼로 쓰겠다"
-	depthDesc.CPUAccessFlags = 0;
-	depthDesc.MiscFlags = 0;
-
-	if (FAILED(m_device->CreateTexture2D(&depthDesc, nullptr, &depthBufferTexture)))
-	{
-		return false;
-	}
-
-	// (2) 텍스처를 기반으로 깊이 스텐실 "뷰(View)" 생성
-	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-	dsvDesc.Format = depthDesc.Format;
-	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	dsvDesc.Texture2D.MipSlice = 0;
-
-	if (FAILED(m_device->CreateDepthStencilView(depthBufferTexture.Get(), &dsvDesc, &m_depthStencilView)))
-	{
-		return false;
-	}
+	
 
 	D3D11_DEPTH_STENCIL_DESC dssDesc = {};
 	dssDesc.DepthEnable = TRUE;                      // 깊이 테스트 사용
